@@ -3,11 +3,19 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 pub struct Args {
-    /// Name of the person to greet
-    #[clap(short, long)]
-    pub name: Option<String>,
+    /// Repo to download logs from, in the form owner/repo
+    #[clap()]
+    pub repo: String,
 
-    /// Number of times to greet
-    #[clap(short, long, default_value_t = 10)]
-    pub count: u8,
+    /// Run IDs to download
+    #[clap()]
+    pub run_ids: Vec<u64>,
+
+    /// Path to output to. Defaults to ./
+    #[clap(short, long, default_value = "./")]
+    pub output_path: String,
+
+    /// Flag, if set will extract the zip files to the output_path. Defaults to false.
+    #[clap(long, takes_value = false)]
+    pub extract: bool,
 }
