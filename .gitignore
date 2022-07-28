@@ -10,7 +10,9 @@ target/
 *.pdb
 
 # Visual Studio Code settings file
-.vscode/settings.json
+.vscode/*
 
 # Other
 tarpaulin-report.html
+
+.python-version

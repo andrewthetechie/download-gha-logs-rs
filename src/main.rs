@@ -34,7 +34,7 @@ mod tests {
     async fn dummy() -> Result<()> {
         log::setup_tracing();
         tracing::warn!("No actual unit tests yet");
-        assert_eq!(4, 3+1);
+        assert_eq!(4, 3 + 1);
         Ok(())
     }
 }
