@@ -9,6 +9,26 @@ This project uses:
 - tokio - for async
 - zip - For extracting zip archives
 
+<p align="center">
+    <a href="https://github.com/andrewthetechie/download-gha-logs-rs" target="_blank">
+        <img src="https://img.shields.io/github/last-commit/andrewthetechie/download-gha-logs-rs" alt="Latest Commit">
+    </a>
+    <img src="https://img.shields.io/badge/license-MIT-green">
+    <img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/andrewthetechie/download-gha-logs-rs?label=Latest%20Release">
+    <br />
+    <a href="https://github.com/andrewthetechie/download-gha-logs-rs/issues"><img src="https://img.shields.io/github/issues/andrewthetechie/download-gha-logs-rs" /></a>
+    <img alt="GitHub Workflow Status Test and Lint (branch)" src="https://img.shields.io/github/workflow/status/andrewthetechie/download-gha-logs-rs/Tests/main?label=Test and Lint">
+    <img alt="GitHub Workflow Status Build and Docker (main)" src="https://img.shields.io/github/workflow/status/andrewthetechie/download-gha-logs-rs/Release/main?label=Build and Docker">
+    <br />
+    <img alt="GitHub all releases" src="https://img.shields.io/github/downloads/andrewthetechie/download-gha-logs-rs/total?color=green">
+    <a href='https://hub.docker.com/r/andrewthetechie/download-gha-logs-rs' target="_blank"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/andrewthetechie/download-gha-logs-rs">
+    <img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/andrewthetechie/download-gha-logs-rs?label=Docker%20Image%20Size"></a>
+</p>
+
+## Installation
+
+Download the appropriate binary from a release. Builds are available for Linux, OSX, and Windows in amd64 and arm64 arch.
+
 ## Usage
 
 Set GITHUB_TOKEN to a Github Personal Access token with access to the repo you are trying to download.
