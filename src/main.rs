@@ -1,24 +1,181 @@
 #![doc = include_str!("../README.md")]
 
-use std::time::Duration;
-
 use anyhow::Result;
-use clap::Parser;
-use tracing::info;
+use octocrab::Octocrab;
 
 use self::args::Args;
+use bytes::Bytes;
+use clap::Parser;
+use futures::future::join_all;
+use std::fs;
+use std::io;
+use tracing::error as error_log;
+use tracing::info as info_log;
 
 mod args;
 mod log;
 
-#[tokio::main(flavor = "multi_thread")]
+async fn extract_file(path_str: String) -> Result<()> {
+    let fname = std::path::Path::new(&*path_str);
+    let parent = fname.parent().unwrap();
+    let parent_path = parent.join(fname.file_stem().unwrap());
+    let file = fs::File::open(&fname).unwrap();
+
+    let mut archive = zip::ZipArchive::new(file).unwrap();
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i).unwrap();
+        let fpath = match file.enclosed_name() {
+            Some(path) => path.to_owned(),
+            None => continue,
+        };
+        let outpath = parent_path.join(fpath);
+        {
+            let comment = file.comment();
+            if !comment.is_empty() {
+                info_log!("File {} comment: {}", i, comment);
+            }
+        }
+
+        if (*file.name()).ends_with('/') {
+            info_log!("File {} extracted to \"{}\"", i, outpath.display());
+            create_dir_if_not_exist(outpath.to_str().unwrap().to_string())
+                .await
+                .unwrap();
+        } else {
+            info_log!(
+                "File {} extracted to \"{}\" ({} bytes)",
+                i,
+                outpath.display(),
+                file.size()
+            );
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    fs::create_dir_all(&p).unwrap();
+                }
+            }
+            let mut outfile = fs::File::create(&outpath).unwrap();
+            io::copy(&mut file, &mut outfile).unwrap();
+        }
+
+        // Get and Set permissions
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            if let Some(mode) = file.unix_mode() {
+                fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn create_dir_if_not_exist(path: String) -> Result<(), String> {
+    let this_path = std::path::Path::new(&path);
+    if !this_path.is_dir() {
+        match tokio::fs::create_dir_all(path).await {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn write_logs(logs: Bytes, path_str: String, filename_str: String) -> Result<String, String> {
+    let fullpath_str = format!("{}/{}", path_str, filename_str);
+    info_log!("Writing logs to {}", fullpath_str);
+    match create_dir_if_not_exist(path_str.to_string()).await {
+        Ok(_) => {
+            let path = std::path::Path::new(&fullpath_str);
+            match tokio::fs::write(path, logs).await {
+                Ok(_) => Ok(fullpath_str),
+                Err(e) => {
+                    error_log!("Error writing log file to {}: {} ", fullpath_str, e);
+                    Err(e.to_string())
+                }
+            }
+        }
+        Err(e) => {
+            error_log!("Error creating directory: {}", e);
+            return Err(format!("Error creating directory: {}", e));
+        }
+    }
+}
+
+/// Download the logs of a Github Action workflow run from repo.
+async fn download_logs(
+    octocrab: Octocrab,
+    repo: String,
+    run_id: u64,
+) -> Result<(u64, Bytes), String> {
+    info_log!("Downloading logs for {} run {}", repo, run_id);
+    let split = repo.split('/');
+    let repo_split = split.collect::<Vec<&str>>();
+    match octocrab
+        .actions()
+        .download_workflow_run_logs(repo_split[0], repo_split[1], run_id.into())
+        .await
+    {
+        Ok(logs) => {
+            let b = std::str::from_utf8(&logs);
+            if b.is_ok() && b.unwrap().contains("\"message\":\"Not Found\"") {
+                return Err(format!("Run {} not found", run_id));
+            }
+            Ok((run_id, logs))
+        }
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
     log::setup_tracing();
+    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env variable is required");
+    let octocrab = Octocrab::builder().personal_token(token).build()?;
 
-    for _ in 0..args.count {
-        info!(name=?args.name);
-        tokio::time::sleep(Duration::from_secs(2)).await;
+    let mut log_futs = Vec::new();
+    for run_id in args.run_ids {
+        let log_fut = download_logs(octocrab.clone(), args.repo.to_string(), run_id);
+        log_futs.push(log_fut);
+    }
+    let logs = join_all(log_futs).await;
+
+    let mut write_futs = Vec::new();
+    for log in logs {
+        match log {
+            Ok((run_id, logs)) => {
+                let write_fut = write_logs(
+                    logs,
+                    format!("{}/{}", args.output_path, args.repo),
+                    format!("{}.zip", run_id),
+                );
+                write_futs.push(write_fut);
+            }
+            Err(e) => {
+                error_log!("Error downloading logs {:?}", e);
+            }
+        }
+    }
+    let files = join_all(write_futs).await;
+
+    if args.extract {
+        let mut extract_futs = Vec::new();
+        for file in files {
+            match file {
+                Ok(file) => {
+                    let extract_fut = extract_file(file);
+                    extract_futs.push(extract_fut);
+                }
+                Err(e) => {
+                    error_log!("Error when writing logs. Won't extract {}", e);
+                }
+            }
+        }
+        join_all(extract_futs).await;
     }
 
     Ok(())

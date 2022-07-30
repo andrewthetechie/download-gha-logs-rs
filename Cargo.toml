@@ -4,11 +4,12 @@ members = []
 
 [package]
 name = "download-gha-logs"
+description = "Download the logs of a Github Actions Run to a local file"
 version = "0.1.0"
 edition = "2021"
 authors = ["Andrew Herrington <andrew.the.techie@gmail.com>"]
 readme = "README.md"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 
 # https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,14 +19,26 @@ tokio-console = ["console-subscriber", "tokio/tracing"]
 
 [dependencies]
 anyhow = "~1.0"
+bytes = "~1.0"
 clap = { version = "~3.2", features = ["derive"] }
-tracing-subscriber = { version = "~0.3" }
-tracing = "~0.1"
-
-tracing-futures = "~0.2"
-tokio = { version = "~1.20", features = ["full"] }
 console-subscriber = { version = "~0.1", optional = true }
+futures = "^0.3"
+octocrab = { version = "^0.16.0", default-features = false, features = [
+  "rustls",
+] }
+tokio = { version = "1.20.0", features = ["full"] }
+tracing = "~0.1"
+tracing-futures = "~0.2"
+tracing-subscriber = { version = "~0.3" }
+zip = { version = "0.6.2", default-features = true }
 
 [dev-dependencies]
-tokio = { version = "~1.20", features = ["test-util", "macros"] }
+tokio = { version = "1.20.0", features = ["test-util", "macros"] }
 tokio-test = "~0.4"
+
+[profile.release]
+strip = true      # Automatically strip symbols from the binary.
+opt-level = "z"   # Optimize for size.
+panic = "abort"
+lto = true
+codegen-units = 1
