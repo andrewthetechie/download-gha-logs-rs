@@ -7,6 +7,7 @@ use self::args::Args;
 use bytes::Bytes;
 use clap::Parser;
 use futures::future::join_all;
+use octocrab::Error as OctocrabError;
 use std::fs;
 use std::io;
 use tracing::error as error_log;
@@ -130,6 +131,52 @@ async fn download_logs(
     }
 }
 
+struct RunFilter {
+    workflow_file: Option<String>,
+    actor: Option<String>,
+    branch: Option<String>,
+    event: Option<String>,
+    status: Option<String>,
+}
+
+async fn lookup_run_ids(
+    octocrab: Octocrab,
+    repo: String,
+    filter: RunFilter,
+    count: u32,
+    offset: u32,
+) -> Result<Vec<u64>, OctocrabError> {
+    let split = repo.split('/');
+    let repo_split = split.collect::<Vec<&str>>();
+    let workflows_handler = octocrab.workflows(repo_split[0], repo_split[1]);
+    let mut runs_handler = workflows_handler.list_all_runs();
+
+    if filter.workflow_file != None {
+        runs_handler = workflows_handler.list_runs(filter.workflow_file.unwrap());
+    }
+    if filter.actor != None {
+        runs_handler = runs_handler.actor(filter.actor.unwrap());
+    }
+    if filter.branch != None {
+        runs_handler = runs_handler.branch(filter.branch.unwrap());
+    }
+    if filter.event != None {
+        runs_handler = runs_handler.event(filter.event.unwrap());
+    }
+    if filter.status != None {
+        runs_handler = runs_handler.status(filter.status.unwrap());
+    }
+    runs_handler = runs_handler.per_page(count as u8);
+    if offset > 0 {
+        let page = ((offset / count) + 1) as u8;
+        println!("Page: {}", page);
+        runs_handler = runs_handler.page(page);
+    }
+    match runs_handler.send().await {
+        Ok(runs) => Ok(runs.items.iter().map(|r| r.id.0).collect()),
+        Err(e) => Err(e),
+    }
+}
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -137,8 +184,27 @@ async fn main() -> Result<()> {
     let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env variable is required");
     let octocrab = Octocrab::builder().personal_token(token).build()?;
 
+    let mut run_ids = args.run_ids;
+    if run_ids.is_empty() {
+        let filter = RunFilter {
+            workflow_file: args.workflow_file,
+            actor: args.actor,
+            branch: args.branch,
+            event: args.event,
+            status: args.status,
+        };
+        run_ids = lookup_run_ids(
+            octocrab.clone(),
+            args.repo.to_string(),
+            filter,
+            args.count,
+            args.offset,
+        )
+        .await?;
+    }
+
     let mut log_futs = Vec::new();
-    for run_id in args.run_ids {
+    for run_id in run_ids {
         let log_fut = download_logs(octocrab.clone(), args.repo.to_string(), run_id);
         log_futs.push(log_fut);
     }
@@ -159,6 +225,9 @@ async fn main() -> Result<()> {
                 error_log!("Error downloading logs {:?}", e);
             }
         }
+    }
+    if write_futs.is_empty() {
+        info_log!("No workflow runs found.")
     }
     let files = join_all(write_futs).await;
 
