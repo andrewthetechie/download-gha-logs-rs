@@ -7,7 +7,7 @@ name = "download-gha-logs"
 description = "Download the logs of a Github Actions Run to a local file"
 version = "0.1.0"
 edition = "2021"
-authors = ["Andrew Herrington <andrew.the.techie@gmail.com>"]
+authors = ["Andrew Herrington <andrew@💻.kz>"]
 readme = "README.md"
 license = "MIT"
 
