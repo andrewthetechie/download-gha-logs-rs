@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1](https://github.com/andrewthetechie/download-gha-logs-rs/compare/v1.0.0...v1.0.1) (2022-08-16)
+
+
+### Bug Fixes
+
+* fix clippy error getting on CI ([188f370](https://github.com/andrewthetechie/download-gha-logs-rs/commit/188f370f5ce0a2bb409f838341d2e36b3543940a))
+
 ## [1.0.0](https://github.com/andrewthetechie/download-gha-logs-rs/compare/v0.1.0...v1.0.0) (2022-08-03)
 
 

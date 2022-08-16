@@ -5,7 +5,7 @@ members = []
 [package]
 name = "download-gha-logs"
 description = "Download the logs of a Github Actions Run to a local file"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 authors = ["Andrew Herrington <andrew@💻.kz>"]
 readme = "README.md"
