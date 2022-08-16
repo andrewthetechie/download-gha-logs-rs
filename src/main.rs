@@ -101,7 +101,7 @@ async fn write_logs(logs: Bytes, path_str: String, filename_str: String) -> Resu
         }
         Err(e) => {
             error_log!("Error creating directory: {}", e);
-            return Err(format!("Error creating directory: {}", e));
+            Err(format!("Error creating directory: {}", e))
         }
     }
 }
